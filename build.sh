@@ -15,6 +15,14 @@ set -euo pipefail
 
 # ── Config ───────────────────────────────────────────────────────────────────
 BOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Prefer local mmdc (avoids snap Chromium sandbox restrictions on /usr/lib/...)
+if [[ -x "${BOOK_DIR}/node_modules/.bin/mmdc" ]]; then
+    MMDC="${BOOK_DIR}/node_modules/.bin/mmdc"
+else
+    MMDC="mmdc"
+fi
+
 OUTPUT_DIR="${BOOK_DIR}/output"
 CHAPTERS_DIR="${BOOK_DIR}/chapters"
 DIAGRAMS_DIR="${BOOK_DIR}/diagrams"
@@ -51,7 +59,7 @@ check_dependencies() {
 
     command -v pandoc   >/dev/null 2>&1 || missing+=("pandoc")
     command -v xelatex  >/dev/null 2>&1 || missing+=("xelatex (texlive-xetex)")
-    command -v mmdc     >/dev/null 2>&1 || missing+=("mmdc (mermaid-cli: npm install -g @mermaid-js/mermaid-cli)")
+    command -v "${MMDC}" >/dev/null 2>&1 || [[ -x "${MMDC}" ]] || missing+=("mmdc (run: cd ${BOOK_DIR} && npm install @mermaid-js/mermaid-cli)")
     command -v java     >/dev/null 2>&1 || missing+=("java")
     command -v plantuml >/dev/null 2>&1 || log_warn "plantuml not found — PlantUML diagrams will be skipped"
     command -v pygmentize>/dev/null 2>&1 || missing+=("pygmentize (pip install Pygments)")
@@ -75,7 +83,7 @@ check_dependencies() {
     log_success "All dependencies found"
     echo "  pandoc:    $(pandoc --version | head -1)"
     echo "  xelatex:   $(xelatex --version | head -1)"
-    echo "  mmdc:      $(mmdc --version 2>/dev/null || echo 'ok')"
+    echo "  mmdc:      $(${MMDC} --version 2>/dev/null || echo 'ok') [${MMDC}]"
 }
 
 # ── Directory Setup ───────────────────────────────────────────────────────────
@@ -137,7 +145,7 @@ EOF
         err_tmp=$(mktemp)
 
         log_info "Rendering: ${name}.mmd → ${name}.svg"
-        if mmdc \
+        if "${MMDC}" \
             --input "${diagram}" \
             --output "${out}" \
             --theme neutral \
