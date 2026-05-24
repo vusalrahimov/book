@@ -45,10 +45,10 @@ geometry:
   - marginparsep=5mm
 
 # Typography
-mainfont: "IBM Plex Sans"
-sansfont: "IBM Plex Sans"
-monofont: "JetBrains Mono"
-mathfont: "IBM Plex Sans"
+mainfont: "Latin Modern Sans"
+sansfont: "Latin Modern Sans"
+monofont: "Latin Modern Mono"
+mathfont: "Latin Modern Math"
 
 # Colors
 linkcolor: "0071C5"

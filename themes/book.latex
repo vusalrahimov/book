@@ -7,16 +7,12 @@
 
 %% ── Font Setup ────────────────────────────────────────────────────────────────
 \usepackage{fontspec}
-\setmainfont{IBM Plex Sans}[
-  BoldFont = IBM Plex Sans Bold,
-  ItalicFont = IBM Plex Sans Italic,
-  BoldItalicFont = IBM Plex Sans Bold Italic
-]
-\setmonofont{JetBrains Mono}[Scale=0.88]
-\setsansfont{IBM Plex Sans}
+\setmainfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+\setsansfont{Latin Modern Sans}
 
 %% ── Core Packages ─────────────────────────────────────────────────────────────
-\usepackage[$geometry$]{geometry}
+\usepackage[$for(geometry)$$geometry$$sep$,$endfor$]{geometry}
 \usepackage{xcolor}
 \usepackage{graphicx}
 \usepackage{microtype}
