@@ -1,0 +1,46 @@
+graph TB
+    subgraph "Kafka Topic: orders (3 partitions, RF=3)"
+        subgraph B1["Broker 1"]
+            subgraph P0L["Partition 0 - LEADER"]
+                P0S0["Segment 0\n.log .index .timeindex"]
+                P0S1["Segment 1\n.log .index .timeindex"]
+                P0S2["Active Segment\n(append only)"]
+            end
+        end
+
+        subgraph B2["Broker 2"]
+            P0F["Partition 0 - FOLLOWER\n(In-Sync Replica)"]
+            P1L["Partition 1 - LEADER"]
+        end
+
+        subgraph B3["Broker 3"]
+            P1F["Partition 1 - FOLLOWER"]
+            P2L["Partition 2 - LEADER"]
+        end
+    end
+
+    subgraph PROD["Producer"]
+        KEY["Key: order-123\nhash('order-123') mod 3 = 0"]
+        BATCH["RecordBatch\nlinger.ms=5, batch.size=64KB"]
+    end
+
+    subgraph CGRP["Consumer Group: email-service"]
+        C1["Consumer 1\nPartition 0: offset=1245"]
+        C2["Consumer 2\nPartition 1: offset=890"]
+        C3["Consumer 3\nPartition 2: offset=2100"]
+    end
+
+    KEY --> BATCH
+    BATCH -->|"acks=all\nwait for ISR"| P0L
+    P0L -->|"Replicate WAL\n(async)"| P0F
+    P0S0 --> P0S1 --> P0S2
+
+    C1 -->|"fetch offset 1245"| P0L
+    C2 -->|"fetch offset 890"| P1L
+    C3 -->|"fetch offset 2100"| P2L
+
+    style B1 fill:#e3f2fd
+    style B2 fill:#e8f5e9
+    style B3 fill:#fce4ec
+    style PROD fill:#fff9c4
+    style CGRP fill:#f3e5f5

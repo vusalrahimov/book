@@ -1,0 +1,52 @@
+graph TB
+    subgraph Client["Client Layer"]
+        APP["Spring Boot App\nLettuce Client\nCluster-aware"]
+    end
+
+    subgraph Shard1["Shard 1 — Slots 0–5460"]
+        M1["Master 1\nredis-1:7001"]
+        R1A["Replica 1a\nredis-4:7004"]
+        M1 -->|async replication| R1A
+    end
+
+    subgraph Shard2["Shard 2 — Slots 5461–10922"]
+        M2["Master 2\nredis-2:7002"]
+        R2A["Replica 2a\nredis-5:7005"]
+        M2 -->|async replication| R2A
+    end
+
+    subgraph Shard3["Shard 3 — Slots 10923–16383"]
+        M3["Master 3\nredis-3:7003"]
+        R3A["Replica 3a\nredis-6:7006"]
+        M3 -->|async replication| R3A
+    end
+
+    APP -->|"CRC16(key) % 16384\nRoute to shard"| M1
+    APP -->|"CRC16(key) % 16384\nRoute to shard"| M2
+    APP -->|"CRC16(key) % 16384\nRoute to shard"| M3
+
+    M1 <-->|"PING / PONG\nGossip Protocol\nFailure Detection"| M2
+    M2 <-->|Gossip| M3
+    M1 <-->|Gossip| M3
+
+    subgraph HashTags["Hash Tag Co-location Example"]
+        HT1["user:{1001}:profile\n→ same slot as\nuser:{1001}:orders"]
+        HT2["order:{ORD-123}:items\n→ same slot as\norder:{ORD-123}:status"]
+    end
+
+    subgraph Failover["Automatic Failover"]
+        F1["Master 1 crashes"]
+        F2["Replicas detect via gossip\n(cluster-node-timeout: 15s)"]
+        F3["Replica 1a promoted\nto Master 1"]
+        F4["Cluster reconfigured\nClients get MOVED/ASK error\nthen reconnect"]
+        F1 --> F2 --> F3 --> F4
+    end
+
+    style Client fill:#e3f2fd,stroke:#1565c0
+    style Shard1 fill:#e8f5e9,stroke:#2e7d32
+    style Shard2 fill:#fff3e0,stroke:#e65100
+    style Shard3 fill:#fce4ec,stroke:#c62828
+    style M1 fill:#a5d6a7,stroke:#2e7d32
+    style M2 fill:#ffcc80,stroke:#e65100
+    style M3 fill:#ef9a9a,stroke:#c62828
+    style Failover fill:#fafafa,stroke:#9e9e9e

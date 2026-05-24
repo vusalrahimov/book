@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant O as Order Service
+    participant I as Inventory Service
+    participant P as Payment Service
+    participant S as Shipping Service
+    participant EB as Event Bus (Kafka)
+
+    rect rgb(200, 255, 200)
+        Note over O,S: Happy Path — Order Fulfillment Saga
+        O->>EB: OrderCreatedEvent(orderId=123)
+        EB->>I: OrderCreatedEvent
+        I->>I: Reserve inventory
+        I->>EB: InventoryReservedEvent(orderId=123)
+        EB->>P: InventoryReservedEvent
+        P->>P: Charge payment
+        P->>EB: PaymentProcessedEvent(orderId=123)
+        EB->>S: PaymentProcessedEvent
+        S->>S: Schedule shipment
+        S->>EB: ShipmentScheduledEvent(orderId=123)
+        EB->>O: ShipmentScheduledEvent
+        O->>O: Order COMPLETED
+    end
+
+    rect rgb(255, 200, 200)
+        Note over O,S: Sad Path — Payment Failure with Compensation
+        O->>EB: OrderCreatedEvent(orderId=456)
+        EB->>I: OrderCreatedEvent
+        I->>I: Reserve inventory ✓
+        I->>EB: InventoryReservedEvent(orderId=456)
+        EB->>P: InventoryReservedEvent
+        P->>P: Charge payment ✗ FAILED
+        P->>EB: PaymentFailedEvent(orderId=456, reason="Insufficient funds")
+        EB->>I: PaymentFailedEvent
+        Note over I: Compensating transaction
+        I->>I: Release inventory reservation
+        I->>EB: InventoryReleasedEvent(orderId=456)
+        EB->>O: PaymentFailedEvent
+        O->>O: Order CANCELLED
+    end

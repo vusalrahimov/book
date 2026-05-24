@@ -1,0 +1,301 @@
+---
+# ServiceAccount with minimal permissions (RBAC)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: order-service
+  namespace: production
+  annotations:
+    # AWS IAM role for IRSA (access to AWS services without access keys)
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/production-order-service
+---
+# ConfigMap — non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+  namespace: production
+data:
+  application.yml: |
+    spring:
+      profiles:
+        active: production
+      datasource:
+        hikari:
+          maximum-pool-size: 20
+          minimum-idle: 5
+    resilience4j:
+      circuitbreaker:
+        instances:
+          inventory-service:
+            failure-rate-threshold: 50
+            wait-duration-in-open-state: 30s
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: health,info,metrics,prometheus
+---
+# Secret (in production, use External Secrets Operator with AWS Secrets Manager)
+# This is for demonstration only — do not store real secrets in Git
+apiVersion: v1
+kind: Secret
+metadata:
+  name: order-service-secrets
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: "changeme"  # In production: managed by External Secrets Operator
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: production
+  labels:
+    app: order-service
+    team: platform
+    version: "1.2.3"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: order-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: order-service
+        version: "1.2.3"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: order-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres-service 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+              echo "PostgreSQL is ready!"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      containers:
+        - name: order-service
+          image: ghcr.io/example/order-service:1.2.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: production
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: order-service-secrets
+                  key: DB_PASSWORD
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: JAVA_TOOL_OPTIONS
+              value: >-
+                -Xms512m
+                -Xmx512m
+                -XX:+UseG1GC
+                -XX:MaxGCPauseMillis=100
+                -XX:+AlwaysPreTouch
+                -XX:+ExitOnOutOfMemoryError
+                -XX:+HeapDumpOnOutOfMemoryError
+                -XX:HeapDumpPath=/tmp/heapdumps/
+                -Dspring.config.additional-location=/etc/config/
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 10
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "640Mi"  # 512Mi heap + 128Mi overhead
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          lifecycle:
+            preStop:
+              exec:
+                # Give existing requests time to complete before pod is removed
+                command: ["/bin/sh", "-c", "sleep 15"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: config
+          configMap:
+            name: order-service-config
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+      terminationGracePeriodSeconds: 60
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: order-service
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: order-service
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: production
+  labels:
+    app: order-service
+spec:
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  type: ClusterIP
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-service-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+---
+# PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: order-service-pdb
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app: order-service
+  minAvailable: 2
+---
+# ServiceMonitor for Prometheus Operator
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: order-service
+  namespace: production
+  labels:
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: order-service
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+      scrapeTimeout: 10s

@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant C as Client\n(Browser/App)
+    participant S as Server\n(order-service)
+    participant CA as Certificate\nAuthority
+
+    Note over C,S: TLS 1.3 Handshake (1 RTT)
+
+    C->>S: ClientHello\n• TLS 1.3\n• Cipher suites: TLS_AES_256_GCM_SHA384, ...\n• key_share: client ECDH public key\n• SNI: api.example.com
+    S->>S: Select cipher suite\nGenerate server ECDH key pair\nCompute shared secret (ECDH)
+    S-->>C: ServerHello\n• Chosen cipher: TLS_AES_256_GCM_SHA384\n• key_share: server ECDH public key
+    C->>C: Compute shared secret (ECDH)\nDerive session keys
+
+    Note over C,S: All subsequent messages are ENCRYPTED
+
+    S-->>C: {EncryptedExtensions}\n{Certificate}\n• Subject: api.example.com\n• Issuer: DigiCert TLS RSA CA\n• Valid: 2024-01-01 to 2025-01-01\n• Public Key: RSA 2048\n{CertificateVerify}\n• Signature(private key, handshake transcript)\n{Finished}\n• HMAC(session key, handshake transcript)
+
+    C->>C: Verify certificate:\n1. Check expiry\n2. Check hostname matches SNI\n3. Verify signature chain to trusted Root CA\n4. Check CRL / OCSP (not revoked)\n5. Verify CertificateVerify signature
+
+    C->>S: {Finished}
+    Note over C,S: Handshake Complete!\nSession keys established\nForward Secrecy guaranteed\n(ECDH keys discarded)
+
+    C->>S: {GET /api/v1/orders HTTP/2\nAuthorization: Bearer eyJ...}
+    S-->>C: {HTTP/2 200 OK\n[order data]}

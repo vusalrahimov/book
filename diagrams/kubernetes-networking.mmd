@@ -1,0 +1,45 @@
+graph TB
+    subgraph "Kubernetes Networking"
+        subgraph NODE1["Worker Node 1 (192.168.1.1)"]
+            subgraph POD_A["Pod A (10.244.1.2)"]
+                APP_A["order-service\ncontainer"]
+                SIDECAR_A["envoy sidecar\n(Istio)"]
+            end
+            subgraph POD_B["Pod B (10.244.1.3)"]
+                APP_B["payment-service"]
+                SIDECAR_B["envoy sidecar"]
+            end
+            KPROXY1["kube-proxy\niptables / IPVS rules"]
+            CBR1["cbr0 bridge\n10.244.1.1/24"]
+        end
+
+        subgraph NODE2["Worker Node 2 (192.168.1.2)"]
+            subgraph POD_C["Pod C (10.244.2.2)"]
+                APP_C["order-service"]
+                SIDECAR_C["envoy sidecar"]
+            end
+            KPROXY2["kube-proxy"]
+            CBR2["cbr0 bridge\n10.244.2.1/24"]
+        end
+
+        subgraph SVC["Kubernetes Services"]
+            SVC1["order-service\nClusterIP: 10.96.0.10:80\n→ Pods 10.244.1.2, 10.244.2.2"]
+            SVC2["payment-service\nClusterIP: 10.96.0.11:80\n→ Pod 10.244.1.3"]
+        end
+
+        INGRESS["NGINX Ingress\nLoadBalancer IP: 1.2.3.4\napi.example.com → order-service"]
+        COREDNS["CoreDNS\norder-service.default.svc.cluster.local\n→ 10.96.0.10"]
+    end
+
+    CLIENT["External Client"] -->|"HTTPS 443"| INGRESS
+    INGRESS --> SVC1
+    SVC1 -->|"NAT via iptables"| POD_A
+    SVC1 -->|"NAT via iptables"| POD_C
+    APP_A -->|"DNS lookup"| COREDNS
+    COREDNS -->|"10.96.0.11"| APP_A
+    APP_A --> SVC2
+    SVC2 --> POD_B
+
+    style NODE1 fill:#e3f2fd
+    style NODE2 fill:#e8f5e9
+    style SVC fill:#fff9c4

@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant C as Client
+    participant GW as API Gateway
+    participant OS as Order Service
+    participant IS as Inventory Service
+    participant PS as Payment Service
+    participant K as Kafka
+    participant J as Jaeger
+
+    Note over C,J: Trace ID: abc123 propagated via W3C traceparent header
+
+    C->>+GW: POST /orders (no traceparent)
+    Note over GW: Span: gateway.route<br/>TraceID: abc123<br/>SpanID: span-01
+    GW->>+OS: Forward + inject traceparent: 00-abc123-span-01-01
+
+    Note over OS: Span: order.create<br/>TraceID: abc123<br/>SpanID: span-02<br/>ParentSpanID: span-01
+    OS->>OS: Validate order
+    OS->>+IS: GET /inventory/{sku} + traceparent header
+
+    Note over IS: Span: inventory.check<br/>TraceID: abc123<br/>SpanID: span-03<br/>ParentSpanID: span-02
+    IS-->>-OS: 200 {available: true}
+
+    OS->>+PS: POST /payments/reserve + traceparent header
+
+    Note over PS: Span: payment.reserve<br/>TraceID: abc123<br/>SpanID: span-04<br/>ParentSpanID: span-02
+    PS-->>-OS: 200 {reservationId: "res-456"}
+
+    OS->>K: Publish OrderCreated event
+    Note over K: Span: kafka.produce<br/>TraceID: abc123<br/>SpanID: span-05<br/>traceparent injected in record headers
+
+    OS-->>-GW: 201 Created {orderId: "ORD-789"}
+    GW-->>-C: 201 Created
+
+    Note over OS,J: Spans exported async via OTLP/gRPC
+    OS-)J: Export spans (span-02, span-03, span-04, span-05)
+    GW-)J: Export span (span-01)
+    PS-)J: Export span (span-04)
+    IS-)J: Export span (span-03)
+
+    Note over J: Full trace reconstructed:<br/>abc123 total duration: 145ms<br/>gateway(10ms) → order(130ms)<br/>  ├─ inventory(20ms)<br/>  └─ payment(95ms)

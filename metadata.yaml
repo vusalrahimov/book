@@ -1,0 +1,100 @@
+---
+title: "Enterprise Java & Distributed Systems Engineering"
+subtitle: "A Complete Handbook for Senior Engineers, Architects, and Platform Engineers"
+author: "Enterprise Engineering Collective"
+date: "2025"
+edition: "First Edition"
+version: "1.0.0"
+
+# Book metadata
+subject: "Software Engineering"
+keywords:
+  - Java
+  - Distributed Systems
+  - Microservices
+  - Kubernetes
+  - Spring Boot
+  - Cloud Native
+  - Platform Engineering
+  - DevOps
+  - SRE
+  - Architecture
+
+description: |
+  A comprehensive, production-focused engineering handbook covering Java backend
+  engineering, distributed systems, microservices architecture, cloud-native
+  engineering, platform engineering, DevOps, SRE, observability, and system design.
+  Written for senior engineers and architects targeting enterprise-grade systems.
+
+# PDF settings
+documentclass: book
+classoption:
+  - twoside
+  - openright
+  - 11pt
+  - a4paper
+
+papersize: a4
+fontsize: 11pt
+linestretch: 1.4
+geometry:
+  - top=25mm
+  - bottom=25mm
+  - left=30mm
+  - right=25mm
+  - marginparsep=5mm
+
+# Typography
+mainfont: "IBM Plex Sans"
+sansfont: "IBM Plex Sans"
+monofont: "JetBrains Mono"
+mathfont: "IBM Plex Sans"
+
+# Colors
+linkcolor: "0071C5"
+urlcolor: "0071C5"
+citecolor: "0071C5"
+toccolor: "black"
+
+# Table of contents
+toc: true
+toc-depth: 3
+number-sections: true
+number-depth: 3
+
+# Code highlighting
+highlight-style: tango
+listings: true
+listing-caption: "Listing"
+
+# PDF features
+colorlinks: true
+hyperrefdefs:
+  - bookmarks=true
+  - bookmarksnumbered=true
+  - pdfstartview=FitH
+  - pdftitle="Enterprise Java & Distributed Systems Engineering"
+  - pdfauthor="Enterprise Engineering Collective"
+  - pdfsubject="Software Engineering Handbook"
+  - pdfkeywords="Java, Distributed Systems, Kubernetes, Microservices, Spring Boot"
+
+# Headers/footers
+header-includes:
+  - \usepackage{fancyhdr}
+  - \usepackage{xcolor}
+  - \usepackage{mdframed}
+  - \usepackage{tcolorbox}
+  - \usepackage{fontawesome5}
+  - \usepackage{listings}
+  - \usepackage{tikz}
+  - \usepackage{pgfplots}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{multirow}
+  - \usepackage{float}
+  - \usepackage{wrapfig}
+  - \usepackage{graphicx}
+  - \usepackage{microtype}
+  - \usepackage{enumitem}
+  - \usepackage{titlesec}
+  - \usepackage{etoolbox}

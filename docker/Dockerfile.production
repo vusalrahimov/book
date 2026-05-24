@@ -1,0 +1,122 @@
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# Production-grade Spring Boot Docker image
+# Multi-stage build for minimal image size and maximum security
+# =============================================================================
+
+# ── Stage 1: Dependency resolution ────────────────────────────────────────────
+FROM eclipse-temurin:21-jdk-alpine AS deps
+
+WORKDIR /build
+
+# Copy only files needed for dependency resolution
+# This layer is cached unless pom.xml changes
+COPY --link pom.xml .
+COPY --link .mvn/ .mvn/
+COPY --link mvnw .
+
+RUN chmod +x mvnw && \
+    ./mvnw dependency:go-offline \
+        --no-transfer-progress \
+        -q
+
+# ── Stage 2: Build ─────────────────────────────────────────────────────────────
+FROM deps AS build
+
+# Copy source code
+COPY --link src/ src/
+
+# Build without tests (tests run in CI pipeline)
+RUN ./mvnw package \
+        --no-transfer-progress \
+        -DskipTests \
+        -q && \
+    # Extract layered JAR for optimized Docker layers
+    java -Djarmode=layertools -jar target/*.jar extract --destination /build/extracted
+
+# ── Stage 3: Security scan (optional but recommended) ─────────────────────────
+# FROM build AS security-scan
+# COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
+# RUN trivy fs --exit-code 1 --severity HIGH,CRITICAL /build/target/*.jar
+
+# ── Stage 4: Runtime ───────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine AS runtime
+
+# Install security patches and minimal tools
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+        # For health checks and debugging
+        curl \
+        # For certificate management
+        ca-certificates \
+        # Timezone data
+        tzdata && \
+    # Remove package manager cache
+    rm -rf /var/cache/apk/* && \
+    # Create non-root user
+    addgroup --system --gid 1001 appgroup && \
+    adduser --system --uid 1001 --ingroup appgroup --no-create-home appuser
+
+# Set timezone
+ENV TZ=UTC
+
+WORKDIR /app
+
+# Copy application layers in order of least-to-most frequently changed
+# This maximizes Docker layer caching efficiency
+COPY --from=build --chown=appuser:appgroup /build/extracted/dependencies/ ./
+COPY --from=build --chown=appuser:appgroup /build/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=appuser:appgroup /build/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=appuser:appgroup /build/extracted/application/ ./
+
+# Switch to non-root user
+USER appuser
+
+# Expose HTTP port only (no management port — use actuator through main port)
+EXPOSE 8080
+
+# JVM tuning for containers:
+# - UseContainerSupport: Read CPU/memory limits from cgroup (default in Java 11+)
+# - MaxRAMPercentage: Use 75% of container memory for heap (leaves 25% for JVM overhead)
+# - G1GC: Good default for most services
+# - AlwaysPreTouch: Pre-allocate heap pages at startup (prevents latency spike later)
+# - ExitOnOutOfMemoryError: Fail fast (let Kubernetes restart) rather than limp along
+ENV JAVA_OPTS="\
+    -XX:+UseContainerSupport \
+    -XX:MaxRAMPercentage=75.0 \
+    -XX:InitialRAMPercentage=50.0 \
+    -XX:+UseG1GC \
+    -XX:MaxGCPauseMillis=100 \
+    -XX:+AlwaysPreTouch \
+    -XX:+DisableExplicitGC \
+    -XX:+ExitOnOutOfMemoryError \
+    -XX:+HeapDumpOnOutOfMemoryError \
+    -XX:HeapDumpPath=/tmp/ \
+    -Xlog:gc*:file=/tmp/gc.log:time,uptime,level,tags:filecount=3,filesize=10m \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dfile.encoding=UTF-8 \
+    -Duser.timezone=UTC"
+
+# Health check using actuator
+HEALTHCHECK \
+    --interval=10s \
+    --timeout=5s \
+    --start-period=60s \
+    --retries=3 \
+    CMD curl -sf http://localhost:8080/actuator/health/liveness || exit 1
+
+# Use JarLauncher from Spring Boot layered JAR
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS org.springframework.boot.loader.launch.JarLauncher"]
+
+# Metadata labels (OCI standard)
+ARG BUILD_DATE
+ARG GIT_COMMIT
+ARG VERSION
+
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
+LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.source="https://github.com/example/order-service"
+LABEL org.opencontainers.image.title="order-service"
+LABEL org.opencontainers.image.description="Order management microservice"

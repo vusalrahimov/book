@@ -1,0 +1,62 @@
+graph TD
+    subgraph Clients["Client Layer"]
+        WEB["Web App\nReact / Next.js"]
+        MOB["Mobile App\niOS / Android"]
+        EXT["External Partner\nAPI Key Auth"]
+    end
+
+    subgraph Gateway["API Gateway — Spring Cloud Gateway"]
+        direction TB
+        GW_IN["Incoming Request"]
+
+        subgraph Filters["Global Filters (ordered)"]
+            F1["1. Rate Limiter\nRedis Token Bucket\n100 req/s per user"]
+            F2["2. JWT Authenticator\nVerify + extract claims"]
+            F3["3. Request Logger\nStructured JSON"]
+            F4["4. Correlation ID\nInject X-Request-ID"]
+            F5["5. Circuit Breaker\nResilience4j"]
+        end
+
+        subgraph Routes["Route Matching"]
+            R1["/api/v1/orders/**\n→ order-service"]
+            R2["/api/v1/inventory/**\n→ inventory-service"]
+            R3["/api/v1/payments/**\n→ payment-service"]
+            R4["/api/v1/users/**\n→ user-service"]
+            R5["/ws/**\n→ WebSocket Upgrade"]
+        end
+    end
+
+    subgraph Services["Downstream Microservices"]
+        OS["Order Service\n:8081"]
+        INV["Inventory Service\n:8082"]
+        PAY["Payment Service\n:8083"]
+        USR["User Service\n:8084"]
+        WS["Notification Service\n:8085 (WebSocket)"]
+    end
+
+    subgraph CrossCutting["Cross-Cutting"]
+        DISCO["Kubernetes DNS\nService Discovery"]
+        CB["Circuit Breaker\nFallback: 503 JSON"]
+        RL["Rate Limit Store\nRedis Cluster"]
+    end
+
+    WEB & MOB & EXT --> GW_IN
+    GW_IN --> F1 --> F2 --> F3 --> F4 --> F5
+    F5 --> Routes
+    R1 --> OS
+    R2 --> INV
+    R3 --> PAY
+    R4 --> USR
+    R5 --> WS
+
+    Gateway <--> DISCO
+    F1 <--> RL
+    F5 <--> CB
+
+    style Gateway fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style Clients fill:#fff3e0,stroke:#e65100
+    style Services fill:#e8f5e9,stroke:#2e7d32
+    style CrossCutting fill:#fafafa,stroke:#9e9e9e
+    style F1 fill:#ffcc80,stroke:#e65100
+    style F2 fill:#ce93d8,stroke:#6a1b9a
+    style F5 fill:#ef9a9a,stroke:#c62828

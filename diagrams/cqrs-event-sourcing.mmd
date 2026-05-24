@@ -1,0 +1,50 @@
+graph TB
+    subgraph CLIENT["Client (API)"]
+        CMD["Command\nPlaceOrderCommand"]
+        QRY["Query\nGetOrderSummary"]
+    end
+
+    subgraph WRITE["Write Side (Command)"]
+        CH["Command Handler\n@Transactional"]
+        AGG["Order Aggregate\nBusiness Logic\nInvariants"]
+        ES["Event Store\nAppend-Only\nImmutable"]
+        SNAP["Snapshots\n(every 100 events)"]
+    end
+
+    subgraph PROJ["Projection / Read Model Builder"]
+        LISTENER["Event Handler\n@EventListener"]
+        PROJ1["OrderSummaryProjection"]
+        PROJ2["CustomerOrdersProjection"]
+        PROJ3["AnalyticsProjection"]
+    end
+
+    subgraph READ["Read Side (Query)"]
+        QH["Query Handler\n@Transactional(readOnly)"]
+        RMODEL1["order_summary_view\nDenormalized flat table\nFast reads, no joins"]
+        RMODEL2["customer_orders_view"]
+        RMODEL3["ClickHouse Analytics"]
+    end
+
+    CMD --> CH
+    CH --> AGG
+    AGG -->|"OrderCreatedEvent\nOrderConfirmedEvent\netc."| ES
+    ES -->|"Load events for replay"| AGG
+    ES -->|"Periodic snapshot"| SNAP
+    SNAP -->|"Load snapshot + delta"| AGG
+
+    ES -->|"Published via Kafka\nor async listener"| LISTENER
+    LISTENER --> PROJ1
+    LISTENER --> PROJ2
+    LISTENER --> PROJ3
+    PROJ1 -->|"UPSERT"| RMODEL1
+    PROJ2 -->|"UPSERT"| RMODEL2
+    PROJ3 -->|"INSERT"| RMODEL3
+
+    QRY --> QH
+    QH --> RMODEL1
+    QH --> RMODEL2
+
+    style WRITE fill:#e3f2fd
+    style PROJ fill:#fff9c4
+    style READ fill:#e8f5e9
+    style CLIENT fill:#f3e5f5

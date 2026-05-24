@@ -1,0 +1,21 @@
+graph TD
+    subgraph CAP["CAP Theorem — Pick 2 of 3"]
+        C["🔒 Consistency\nAll nodes see the\nsame data at the same time"]
+        A["✅ Availability\nEvery request receives\na (non-error) response"]
+        P["🌐 Partition Tolerance\nSystem continues operating\ndespite network partitions"]
+    end
+
+    C --- CA["CA Systems\n(No partition tolerance)\nTraditional RDBMS\nMySQL single-node\n"]
+    C --- CP["CP Systems\n(Sacrifice availability)\nHBase, MongoDB,\nRedis, ZooKeeper,\netcd, Cassandra*"]
+    A --- CA
+    A --- AP["AP Systems\n(Sacrifice consistency)\nCassandra*, DynamoDB,\nCouchDB, Riak,\nDNS"]
+    P --- CP
+    P --- AP
+
+    style CAP fill:#e3f2fd,stroke:#1565c0
+    style C fill:#bbdefb,stroke:#1565c0
+    style A fill:#bbdefb,stroke:#1565c0
+    style P fill:#bbdefb,stroke:#1565c0
+    style CA fill:#fff9c4,stroke:#f57f17
+    style CP fill:#fce4ec,stroke:#c62828
+    style AP fill:#e8f5e9,stroke:#2e7d32

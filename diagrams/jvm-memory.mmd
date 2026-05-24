@@ -1,0 +1,35 @@
+graph TB
+    subgraph "JVM Memory Layout"
+        subgraph HEAP["Heap (controlled by -Xms / -Xmx)"]
+            subgraph YOUNG["Young Generation (~1/3 of heap)"]
+                EDEN["Eden Space\nNew objects allocated here\n(typically 80% of Young)"]
+                S0["Survivor 0\n(10% of Young)"]
+                S1["Survivor 1\n(10% of Young)"]
+            end
+            subgraph OLD["Old Generation (~2/3 of heap)"]
+                TENURED["Tenured Space\nLong-lived objects\nPromoted from Young after N GC cycles"]
+            end
+        end
+
+        subgraph NONHEAP["Non-Heap Memory"]
+            META["Metaspace (native memory)\nClass metadata, method bytecode\nGrows automatically"]
+            CC["Code Cache\nJIT-compiled native code\n-XX:ReservedCodeCacheSize"]
+            DIRECT["Direct ByteBuffer\nOff-heap I/O buffers\n-XX:MaxDirectMemorySize"]
+        end
+
+        subgraph THREAD["Per-Thread Memory"]
+            STACK["JVM Stack\nStack frames, local vars\n-Xss (default 512k-1m)"]
+            PCNT["Program Counter\nCurrent bytecode pointer"]
+            NATIVE["Native Method Stack\nFor JNI calls"]
+        end
+    end
+
+    EDEN -->|"Minor GC: copy live objects"| S0
+    S0 -->|"Survived N GCs\n(MaxTenuringThreshold=15)"| TENURED
+    TENURED -->|"Major GC / Full GC"| TENURED
+
+    style HEAP fill:#e3f2fd,stroke:#1565c0
+    style YOUNG fill:#fff9c4,stroke:#f57f17
+    style OLD fill:#fce4ec,stroke:#c62828
+    style NONHEAP fill:#e8f5e9,stroke:#1b5e20
+    style THREAD fill:#f3e5f5,stroke:#4a148c

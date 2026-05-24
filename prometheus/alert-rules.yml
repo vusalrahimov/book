@@ -1,0 +1,199 @@
+groups:
+  # ── Application SLO Alerts ─────────────────────────────────────────────────
+  - name: application-slo
+    interval: 30s
+    rules:
+
+      - alert: ServiceHighErrorRate
+        expr: |
+          (
+            rate(http_server_requests_seconds_count{status=~"5.."}[5m])
+            / on(application, namespace)
+            rate(http_server_requests_seconds_count[5m])
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "{{ $labels.application }} error rate > 5%"
+          description: >
+            Service {{ $labels.application }} in namespace {{ $labels.namespace }}
+            has error rate of {{ $value | humanizePercentage }}.
+            Dashboard: https://grafana.example.com/d/spring-boot?var-app={{ $labels.application }}
+
+      - alert: ServiceDown
+        expr: up{job="kubernetes-pods"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          pagerduty: "true"
+        annotations:
+          summary: "{{ $labels.application }} is DOWN"
+          description: "{{ $labels.application }} pod {{ $labels.pod }} has been down for 1 minute"
+
+      - alert: ServiceHighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_server_requests_seconds_bucket[5m])
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} p99 latency > 2 seconds"
+          description: "p99 latency: {{ $value | humanizeDuration }}"
+
+  # ── JVM Alerts ─────────────────────────────────────────────────────────────
+  - name: jvm
+    rules:
+
+      - alert: JvmMemoryHigh
+        expr: |
+          (
+            jvm_memory_used_bytes{area="heap"}
+            / jvm_memory_max_bytes{area="heap"}
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} JVM heap > 85%"
+          description: "JVM heap usage: {{ $value | humanizePercentage }}"
+
+      - alert: JvmGcDurationHigh
+        expr: |
+          rate(jvm_gc_pause_seconds_sum[5m])
+          / rate(jvm_gc_pause_seconds_count[5m])
+          > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} GC average pause > 500ms"
+
+      - alert: JvmThreadsHigh
+        expr: |
+          jvm_threads_live_threads > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} has {{ $value }} live threads"
+
+  # ── Kafka Alerts ────────────────────────────────────────────────────────────
+  - name: kafka
+    rules:
+
+      - alert: KafkaConsumerLagHigh
+        expr: |
+          kafka_consumer_group_lag > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag high"
+          description: >
+            Consumer group {{ $labels.group }} topic {{ $labels.topic }}
+            partition {{ $labels.partition }} has lag of {{ $value }}.
+
+      - alert: KafkaBrokerDown
+        expr: kafka_server_BrokerState_Value == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka broker {{ $labels.instance }} is down"
+
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_ReplicaManager_UnderReplicatedPartitions > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka has {{ $value }} under-replicated partitions"
+
+  # ── Database Alerts ─────────────────────────────────────────────────────────
+  - name: postgresql
+    rules:
+
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          pagerduty: "true"
+        annotations:
+          summary: "PostgreSQL is down"
+
+      - alert: PostgreSQLConnectionsHigh
+        expr: |
+          pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connections > 80% of max_connections"
+          description: "{{ $value | humanizePercentage }} of max_connections used"
+
+      - alert: PostgreSQLSlowQueries
+        expr: |
+          rate(pg_stat_statements_mean_exec_time_seconds[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL has slow queries (avg > 1s)"
+
+      - alert: PostgreSQLDeadLocks
+        expr: rate(pg_stat_database_deadlocks[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL deadlocks detected"
+          description: "{{ $value | humanize }} deadlocks per second"
+
+  # ── Kubernetes Alerts ───────────────────────────────────────────────────────
+  - name: kubernetes
+    rules:
+
+      - alert: PodOOMKilled
+        expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} OOMKilled"
+          description: >
+            Container {{ $labels.container }} in pod {{ $labels.pod }}
+            was OOMKilled. Increase memory limit.
+
+      - alert: DeploymentReplicasMismatch
+        expr: |
+          kube_deployment_spec_replicas != kube_deployment_status_replicas_available
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.deployment }} has {{ $value }} unavailable replicas"
+
+      - alert: NodeMemoryHigh
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.node }} memory > 85%"
+
+      - alert: NodeDiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|aufs"}
+          / node_filesystem_size_bytes) < 0.15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.node }} disk space < 15%"
+          description: "Mount {{ $labels.mountpoint }} has {{ $value | humanizePercentage }} free"

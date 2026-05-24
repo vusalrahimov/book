@@ -1,0 +1,47 @@
+# Production environment overrides
+# Usage: helm upgrade order-service ./helm/order-service -f values-production.yaml
+
+replicaCount: 5
+
+image:
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+  limits:
+    cpu: 4000m
+    memory: 2Gi
+
+autoscaling:
+  minReplicas: 5
+  maxReplicas: 50
+  targetCPUUtilizationPercentage: 65
+
+podDisruptionBudget:
+  minAvailable: 3
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/production-order-service
+
+config:
+  spring:
+    datasource:
+      url: "jdbc:postgresql://production-rds.cluster.us-east-1.rds.amazonaws.com:5432/orders"
+      hikari:
+        maximum-pool-size: 30
+    kafka:
+      bootstrap-servers: "kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092"
+    data:
+      redis:
+        cluster:
+          nodes:
+            - redis-1:7001
+            - redis-2:7002
+            - redis-3:7003
+  management:
+    tracing:
+      sampling:
+        probability: 0.05  # 5% sampling in production to reduce overhead

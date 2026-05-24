@@ -1,0 +1,305 @@
+%% =============================================================================
+%% Enterprise Java & Distributed Systems Engineering
+%% Professional LaTeX Book Template
+%% =============================================================================
+
+\documentclass[$if(fontsize)$$fontsize$,$endif$$if(papersize)$$papersize$paper,$endif$$for(classoption)$$classoption$$sep$,$endfor$]{$documentclass$}
+
+%% ── Font Setup ────────────────────────────────────────────────────────────────
+\usepackage{fontspec}
+\setmainfont{IBM Plex Sans}[
+  BoldFont = IBM Plex Sans Bold,
+  ItalicFont = IBM Plex Sans Italic,
+  BoldItalicFont = IBM Plex Sans Bold Italic
+]
+\setmonofont{JetBrains Mono}[Scale=0.88]
+\setsansfont{IBM Plex Sans}
+
+%% ── Core Packages ─────────────────────────────────────────────────────────────
+\usepackage[$geometry$]{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{mdframed}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins,listings}
+\usepackage{fontawesome5}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{titletoc}
+\usepackage{etoolbox}
+\usepackage{setspace}
+\usepackage{parskip}
+
+%% ── Hyperref ──────────────────────────────────────────────────────────────────
+\usepackage[
+  colorlinks=true,
+  linkcolor=EngineeringBlue,
+  urlcolor=EngineeringBlue,
+  citecolor=EngineeringBlue,
+  bookmarks=true,
+  bookmarksnumbered=true,
+  pdfstartview=FitH,
+  pdftitle={$title$},
+  pdfauthor={$author$},
+  pdfsubject={$subject$},
+  unicode=true
+]{hyperref}
+
+%% ── Color Palette ─────────────────────────────────────────────────────────────
+\definecolor{EngineeringBlue}{HTML}{0071C5}
+\definecolor{DeepNavy}{HTML}{1A1F36}
+\definecolor{MidGray}{HTML}{6B7280}
+\definecolor{LightGray}{HTML}{F3F4F6}
+\definecolor{BorderGray}{HTML}{E5E7EB}
+\definecolor{WarningAmber}{HTML}{D97706}
+\definecolor{DangerRed}{HTML}{DC2626}
+\definecolor{SuccessGreen}{HTML}{059669}
+\definecolor{CodeBackground}{HTML}{1E1E2E}
+\definecolor{CodeForeground}{HTML}{CDD6F4}
+\definecolor{TipBackground}{HTML}{EFF6FF}
+\definecolor{TipBorder}{HTML}{3B82F6}
+\definecolor{WarnBackground}{HTML}{FFFBEB}
+\definecolor{WarnBorder}{HTML}{F59E0B}
+\definecolor{NoteBackground}{HTML}{F0FDF4}
+\definecolor{NoteBorder}{HTML}{22C55E}
+\definecolor{DangerBackground}{HTML}{FEF2F2}
+\definecolor{DangerBorder}{HTML}{EF4444}
+\definecolor{ChapterAccent}{HTML}{0071C5}
+
+%% ── Page Layout ───────────────────────────────────────────────────────────────
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\setstretch{$if(linestretch)$$linestretch$$else$1.4$endif$}
+
+%% ── Chapter/Section Title Styles ──────────────────────────────────────────────
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{DeepNavy}}
+  {\color{EngineeringBlue}\small\bfseries\MakeUppercase{Chapter \thechapter}}
+  {0.5em}
+  {\rule{\textwidth}{2pt}\vspace{0.5em}\newline}
+  [\vspace{0.3em}\rule{\textwidth}{0.5pt}]
+
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{DeepNavy}}
+  {\color{EngineeringBlue}\thesection}
+  {1em}
+  {}
+  [\vspace{-0.5em}\color{BorderGray}\rule{\textwidth}{0.5pt}]
+
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{DeepNavy}}
+  {\thesubsection}
+  {1em}
+  {}
+
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries\color{MidGray}}
+  {\thesubsubsection}
+  {1em}
+  {}
+
+\titlespacing*{\chapter}{0pt}{0pt}{2em}
+\titlespacing*{\section}{0pt}{1.5em}{0.5em}
+\titlespacing*{\subsection}{0pt}{1em}{0.3em}
+
+%% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\color{MidGray}\leftmark}
+\fancyhead[RO]{\small\color{MidGray}\rightmark}
+\fancyfoot[C]{\small\color{MidGray}--- \thepage\ ---}
+\fancyfoot[LE]{\small\color{MidGray}Enterprise Java \& Distributed Systems Engineering}
+\fancyfoot[RO]{\small\color{MidGray}\textit{$author$}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\renewcommand{\headrule}{\color{BorderGray}\hrule}
+\renewcommand{\footrule}{\color{BorderGray}\hrule}
+
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\small\color{MidGray}--- \thepage\ ---}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+}
+
+%% ── Code Listings ─────────────────────────────────────────────────────────────
+\lstset{
+  basicstyle=\footnotesize\ttfamily\color{CodeForeground},
+  backgroundcolor=\color{CodeBackground},
+  commentstyle=\color{gray}\itshape,
+  keywordstyle=\color{cyan}\bfseries,
+  stringstyle=\color{yellow},
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  numbers=left,
+  numbersep=5pt,
+  frame=single,
+  framerule=0pt,
+  rulecolor=\color{CodeBackground},
+  tabsize=4,
+  captionpos=b,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=1em,
+  belowskip=1em,
+  keepspaces=true,
+}
+
+%% ── Callout Boxes ─────────────────────────────────────────────────────────────
+\tcbset{
+  tipbox/.style={
+    breakable,
+    enhanced,
+    colback=TipBackground,
+    colframe=TipBorder,
+    leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
+    arc=2pt,
+    fonttitle=\bfseries\small,
+    title={\faLightbulb\quad TIP},
+    coltitle=TipBorder,
+    attach boxed title to top left={xshift=6pt, yshift=-3pt},
+    boxed title style={colback=TipBackground, colframe=TipBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
+    left=6pt, right=6pt, top=8pt, bottom=6pt,
+  },
+  warningbox/.style={
+    breakable,
+    enhanced,
+    colback=WarnBackground,
+    colframe=WarnBorder,
+    leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
+    arc=2pt,
+    fonttitle=\bfseries\small,
+    title={\faExclamationTriangle\quad WARNING},
+    coltitle=WarnBorder,
+    attach boxed title to top left={xshift=6pt, yshift=-3pt},
+    boxed title style={colback=WarnBackground, colframe=WarnBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
+    left=6pt, right=6pt, top=8pt, bottom=6pt,
+  },
+  notebox/.style={
+    breakable,
+    enhanced,
+    colback=NoteBackground,
+    colframe=NoteBorder,
+    leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
+    arc=2pt,
+    fonttitle=\bfseries\small,
+    title={\faInfoCircle\quad NOTE},
+    coltitle=NoteBorder,
+    attach boxed title to top left={xshift=6pt, yshift=-3pt},
+    boxed title style={colback=NoteBackground, colframe=NoteBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
+    left=6pt, right=6pt, top=8pt, bottom=6pt,
+  },
+  dangerbox/.style={
+    breakable,
+    enhanced,
+    colback=DangerBackground,
+    colframe=DangerBorder,
+    leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
+    arc=2pt,
+    fonttitle=\bfseries\small,
+    title={\faSkull\quad DANGER},
+    coltitle=DangerBorder,
+    attach boxed title to top left={xshift=6pt, yshift=-3pt},
+    boxed title style={colback=DangerBackground, colframe=DangerBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
+    left=6pt, right=6pt, top=8pt, bottom=6pt,
+  },
+  interviewbox/.style={
+    breakable,
+    enhanced,
+    colback=LightGray,
+    colframe=EngineeringBlue,
+    leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
+    arc=2pt,
+    fonttitle=\bfseries\small,
+    title={\faQuestion\quad INTERVIEW QUESTION},
+    coltitle=EngineeringBlue,
+    attach boxed title to top left={xshift=6pt, yshift=-3pt},
+    boxed title style={colback=LightGray, colframe=EngineeringBlue, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
+    left=6pt, right=6pt, top=8pt, bottom=6pt,
+  },
+}
+
+\newenvironment{tip}{\begin{tcolorbox}[tipbox]}{\end{tcolorbox}}
+\newenvironment{warning}{\begin{tcolorbox}[warningbox]}{\end{tcolorbox}}
+\newenvironment{note}{\begin{tcolorbox}[notebox]}{\end{tcolorbox}}
+\newenvironment{danger}{\begin{tcolorbox}[dangerbox]}{\end{tcolorbox}}
+\newenvironment{interview}{\begin{tcolorbox}[interviewbox]}{\end{tcolorbox}}
+
+%% ── Table of Contents Styling ─────────────────────────────────────────────────
+\contentsmargin{0pt}
+\titlecontents{chapter}
+  [0pt]
+  {\addvspace{1em}\bfseries}
+  {\color{EngineeringBlue}\contentslabel{2em}}
+  {}
+  {\hfill\color{EngineeringBlue}\contentspage}
+
+\titlecontents{section}
+  [2em]
+  {\addvspace{0.2em}}
+  {\contentslabel{2.5em}}
+  {}
+  {\titlerule*[0.5pc]{.}\contentspage}
+
+%% ── Front Matter ──────────────────────────────────────────────────────────────
+\newcommand{\maketitlepage}{%
+  \begin{titlepage}
+    \pagecolor{DeepNavy}
+    \color{white}
+    \vspace*{3cm}
+    \begin{center}
+      {\color{EngineeringBlue}\rule{\textwidth}{2pt}}\\[1em]
+      {\fontsize{36}{44}\selectfont\bfseries $title$}\\[0.5em]
+      {\color{EngineeringBlue}\rule{\textwidth}{2pt}}\\[1.5em]
+      {\Large $subtitle$}\\[3em]
+      {\large $author$}\\[1em]
+      {\normalsize $date$ \quad|\quad Edition $edition$}\\[3em]
+      \includegraphics[width=0.6\textwidth]{assets/cover-diagram.pdf}
+    \end{center}
+    \vfill
+    \begin{center}
+      {\small\color{MidGray}
+       Java 21 · Spring Boot · Kubernetes · Kafka · PostgreSQL · Redis \\
+       Terraform · ArgoCD · Istio · Prometheus · OpenTelemetry · AWS}
+    \end{center}
+  \end{titlepage}
+  \pagecolor{white}
+  \color{black}
+}
+
+%% ── Document Start ────────────────────────────────────────────────────────────
+\begin{document}
+
+$if(has-frontmatter)$
+\frontmatter
+$endif$
+
+\maketitlepage
+
+$if(toc)$
+\tableofcontents
+\addtocontents{toc}{\protect\setcounter{tocdepth}{$if(toc-depth)$$toc-depth$$else$3$endif$}}
+\clearpage
+$endif$
+
+\mainmatter
+
+$body$
+
+\backmatter
+
+\end{document}

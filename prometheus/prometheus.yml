@@ -1,0 +1,99 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    environment: production
+    cluster: main
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+      timeout: 10s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # ── Self-monitoring ─────────────────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # ── Kubernetes Node Exporter ────────────────────────────────────────────────
+  - job_name: node-exporter
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: (.+):(.+)
+        target_label: __address__
+        replacement: $1:9100
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: node
+
+  # ── Kubernetes API Server ───────────────────────────────────────────────────
+  - job_name: kubernetes-apiservers
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+  # ── All annotated pods (Spring Boot services) ───────────────────────────────
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      # Useful metadata as labels
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: application
+      - source_labels: [__meta_kubernetes_pod_label_version]
+        target_label: version
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: node
+
+  # ── Kafka metrics (via JMX Exporter) ───────────────────────────────────────
+  - job_name: kafka
+    static_configs:
+      - targets:
+          - kafka-1:9308
+          - kafka-2:9308
+          - kafka-3:9308
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: ([^:]+):\d+
+        target_label: instance
+
+  # ── PostgreSQL metrics ──────────────────────────────────────────────────────
+  - job_name: postgres
+    static_configs:
+      - targets: [postgres-exporter:9187]
+
+  # ── Redis metrics ───────────────────────────────────────────────────────────
+  - job_name: redis
+    static_configs:
+      - targets: [redis-exporter:9121]

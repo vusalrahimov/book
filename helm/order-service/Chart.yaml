@@ -1,0 +1,23 @@
+apiVersion: v2
+name: order-service
+description: Order management microservice Helm chart
+type: application
+
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - java
+  - spring-boot
+  - microservice
+  - order
+
+home: https://github.com/example/order-service
+sources:
+  - https://github.com/example/order-service
+
+maintainers:
+  - name: Platform Engineering
+    email: platform@example.com
+
+dependencies: []

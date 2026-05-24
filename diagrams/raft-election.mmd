@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant N1 as Node 1
+    participant N2 as Node 2 (Leader)
+    participant N3 as Node 3
+
+    rect rgb(200, 255, 200)
+        Note over N1,N3: Normal Operation (Term 2)
+        N2->>N1: AppendEntries heartbeat (term=2)
+        N2->>N3: AppendEntries heartbeat (term=2)
+        N1-->>N2: ACK
+        N3-->>N2: ACK
+    end
+
+    rect rgb(255, 200, 200)
+        Note over N1,N3: Leader Failure
+        Note over N2: Node 2 crashes!
+        Note over N1: Election timeout fires (150-300ms random)
+    end
+
+    rect rgb(200, 200, 255)
+        Note over N1,N3: Election (Term 3)
+        N1->>N1: currentTerm++ = 3\nvotedFor = self\nstate = CANDIDATE
+        N1->>N3: RequestVote(term=3, candidateId=N1, lastLogIndex=45, lastLogTerm=2)
+        N3->>N3: term 3 > my term 2\nvotedFor = N1\nstate = FOLLOWER
+        N3-->>N1: VoteGranted=true (term=3)
+        Note over N1: Received majority (self + N3)\nBecome LEADER for Term 3
+        N1->>N3: AppendEntries heartbeat (term=3, leaderId=N1)
+        N3-->>N1: ACK
+    end
+
+    rect rgb(200, 255, 200)
+        Note over N1,N3: New Normal Operation (Term 3)
+        N1->>N3: AppendEntries (term=3, entry="x=5")
+        N3->>N3: Append to log
+        N3-->>N1: success
+        Note over N1: Majority ACK'd → commit "x=5"
+        N1->>N3: AppendEntries (commitIndex updated)
+    end

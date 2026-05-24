@@ -1,0 +1,72 @@
+graph TB
+    subgraph "Microservices Architecture — E-Commerce Platform"
+        CLIENT["Web / Mobile\nClient"] --> GW
+
+        subgraph GW["API Gateway (Spring Cloud Gateway)"]
+            AUTH_F["Auth Filter\nJWT Validation"]
+            RATE_F["Rate Limiter\nRedis Token Bucket"]
+            ROUTE["Router\nPath-based routing"]
+        end
+
+        GW --> OS
+        GW --> PS
+        GW --> CS
+        GW --> IS
+
+        subgraph OS["Order Service"]
+            OS_API["REST API"]
+            OS_SVC["OrderService"]
+            OS_DB[("PostgreSQL\norders DB")]
+            OS_OUTBOX["Outbox\nTable"]
+        end
+
+        subgraph PS["Product Service"]
+            PS_API["REST API"]
+            PS_CACHE["Redis Cache\n1h TTL"]
+            PS_DB[("PostgreSQL\nproducts DB")]
+        end
+
+        subgraph CS["Customer Service"]
+            CS_API["REST API + gRPC"]
+            CS_DB[("PostgreSQL\ncustomers DB")]
+        end
+
+        subgraph IS["Inventory Service"]
+            IS_API["REST API"]
+            IS_DB[("Cassandra\nhigh write volume")]
+        end
+
+        subgraph KAFKA["Apache Kafka (Event Bus)"]
+            T1["order-events\n(12 partitions, RF=3)"]
+            T2["inventory-events"]
+            T3["notification-events"]
+        end
+
+        subgraph CONSUMERS["Event Consumers"]
+            NOTIF["Notification Service\nemail / SMS / push"]
+            FRAUD["Fraud Detection\n(Flink streaming)"]
+            ANAL["Analytics Service\n(Spark batch)"]
+        end
+
+        OS_OUTBOX -->|"Debezium CDC"| T1
+        T1 --> NOTIF
+        T1 --> FRAUD
+        T1 --> ANAL
+        IS -->|"inventory updates"| T2
+        T2 --> OS
+
+        subgraph OBS["Observability"]
+            PROM["Prometheus\nMetrics"]
+            JAEG["Jaeger\nTraces"]
+            ES2["ELK\nLogs"]
+        end
+
+        OS --> PROM
+        PS --> PROM
+        IS --> PROM
+    end
+
+    style GW fill:#e3f2fd
+    style KAFKA fill:#fff9c4
+    style OBS fill:#f3e5f5
+    style CONSUMERS fill:#e8f5e9

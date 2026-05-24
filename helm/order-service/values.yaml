@@ -1,0 +1,249 @@
+# =============================================================================
+# order-service Helm values
+# Override per environment: values-staging.yaml, values-production.yaml
+# =============================================================================
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/example/order-service
+  pullPolicy: IfNotPresent
+  # Overridden by CI: --set image.tag=${{ github.sha }}
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# ── Service Account ───────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  annotations:
+    # AWS IRSA: IAM role ARN (overridden per environment)
+    eks.amazonaws.com/role-arn: ""
+  name: ""
+
+# ── Pod metadata ──────────────────────────────────────────────────────────────
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/actuator/prometheus"
+
+podLabels: {}
+
+# ── Security ──────────────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# ── Service ───────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8080
+
+# ── Ingress ───────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /api/v1/orders
+          pathType: Prefix
+  tls:
+    - secretName: api-tls
+      hosts:
+        - api.example.com
+
+# ── Resources ────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 1Gi
+
+# ── JVM configuration ─────────────────────────────────────────────────────────
+jvm:
+  opts: >-
+    -XX:+UseContainerSupport
+    -XX:MaxRAMPercentage=75.0
+    -XX:InitialRAMPercentage=50.0
+    -XX:+UseG1GC
+    -XX:MaxGCPauseMillis=100
+    -XX:+ExitOnOutOfMemoryError
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:HeapDumpPath=/tmp/
+    -Djava.security.egd=file:/dev/./urandom
+    -Dfile.encoding=UTF-8
+
+# ── Health probes ─────────────────────────────────────────────────────────────
+startupProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 30
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  periodSeconds: 5
+  failureThreshold: 3
+
+# ── Autoscaling ───────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # Kafka consumer lag metric (requires KEDA or custom metrics adapter)
+  kafkaLagTarget: 1000
+
+# ── PodDisruptionBudget ───────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# ── Node scheduling ───────────────────────────────────────────────────────────
+nodeSelector:
+  node-type: general
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: order-service
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: order-service
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: config
+    configMap:
+      name: '{{ include "order-service.fullname" . }}'
+
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: config
+    mountPath: /app/config
+    readOnly: true
+
+# ── Application configuration ─────────────────────────────────────────────────
+config:
+  server:
+    port: 8080
+    shutdown: graceful
+  spring:
+    datasource:
+      url: "jdbc:postgresql://postgres:5432/orders"
+      username: orders
+      hikari:
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+    kafka:
+      bootstrap-servers: "kafka:9092"
+      producer:
+        acks: all
+        retries: 2147483647
+        enable-idempotence: true
+      consumer:
+        group-id: order-service
+        auto-offset-reset: earliest
+    cache:
+      type: redis
+    data:
+      redis:
+        host: redis
+        port: 6379
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,prometheus,metrics
+    tracing:
+      sampling:
+        probability: 0.1
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# Secrets are injected via External Secrets Operator from AWS Secrets Manager
+externalSecrets:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreName: aws-secrets-manager
+  secrets:
+    - remoteRef:
+        key: production/order-service/db-password
+      secretKey: DB_PASSWORD
+    - remoteRef:
+        key: production/order-service/jwt-secret
+      secretKey: JWT_SECRET
+
+# ── ServiceMonitor (Prometheus Operator) ──────────────────────────────────────
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  path: /actuator/prometheus
+  labels:
+    release: prometheus
+
+# ── Environment variables ─────────────────────────────────────────────────────
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: kubernetes
+  - name: TZ
+    value: UTC
+
+envFrom:
+  - secretRef:
+      name: '{{ include "order-service.fullname" . }}-secrets'
+
+# ── Lifecycle ─────────────────────────────────────────────────────────────────
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sh", "-c", "sleep 15"]
+
+terminationGracePeriodSeconds: 60
