@@ -268,7 +268,7 @@
       {\Large $subtitle$}\\[3em]
       {\large $author$}\\[1em]
       {\normalsize $date$ \quad|\quad Edition $edition$}\\[3em]
-      \includegraphics[width=0.6\textwidth]{assets/cover-diagram.pdf}
+      $if(cover-image)$\includegraphics[width=0.6\textwidth]{$cover-image$}$endif$
     \end{center}
     \vfill
     \begin{center}

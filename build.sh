@@ -92,6 +92,31 @@ render_diagrams() {
     local count=0
     local failed=0
 
+    # Create a puppeteer config to handle headless Chrome on servers/Docker
+    local puppeteer_cfg="${OUTPUT_DIR}/puppeteer-config.json"
+    local chrome_exec=""
+    for candidate in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable; do
+        if [[ -x "${candidate}" ]]; then
+            chrome_exec="${candidate}"
+            break
+        fi
+    done
+
+    if [[ -n "${chrome_exec}" ]]; then
+        cat > "${puppeteer_cfg}" <<EOF
+{
+  "executablePath": "${chrome_exec}",
+  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+}
+EOF
+    else
+        cat > "${puppeteer_cfg}" <<'EOF'
+{
+  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+}
+EOF
+    fi
+
     find "${DIAGRAMS_DIR}" -name "*.mmd" | while read -r diagram; do
         local name
         name=$(basename "${diagram}" .mmd)
@@ -105,6 +130,7 @@ render_diagrams() {
             --backgroundColor white \
             --width 1200 \
             --height 800 \
+            --puppeteerConfigFile "${puppeteer_cfg}" \
             2>>"${LOG_FILE}"; then
             count=$((count + 1))
             log_success "${name}.svg"
@@ -171,6 +197,11 @@ build_pdf() {
         combined=$(assemble_chapters)
     fi
 
+    local crossref_filter=()
+    if command -v pandoc-crossref >/dev/null 2>&1; then
+        crossref_filter=(--filter pandoc-crossref)
+    fi
+
     pandoc \
         "${combined}" \
         --metadata-file="${METADATA}" \
@@ -184,7 +215,7 @@ build_pdf() {
         --top-level-division=chapter \
         --resource-path="${BOOK_DIR}:${OUTPUT_DIR}" \
         --variable=graphics \
-        --filter pandoc-crossref 2>/dev/null || true \
+        "${crossref_filter[@]}" \
         --output="${OUTPUT_PDF}" \
         2>&1 | tee -a "${LOG_FILE}"
 
