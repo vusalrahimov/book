@@ -92,10 +92,17 @@ render_diagrams() {
     local count=0
     local failed=0
 
-    # Create a puppeteer config to handle headless Chrome on servers/Docker
+    # Locate a usable Chrome/Chromium executable
     local puppeteer_cfg="${OUTPUT_DIR}/puppeteer-config.json"
     local chrome_exec=""
-    for candidate in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable; do
+    for candidate in \
+        /usr/bin/chromium \
+        /usr/bin/chromium-browser \
+        /snap/bin/chromium \
+        /usr/bin/google-chrome \
+        /usr/bin/google-chrome-stable \
+        /usr/local/bin/chromium \
+        /usr/local/bin/google-chrome; do
         if [[ -x "${candidate}" ]]; then
             chrome_exec="${candidate}"
             break
@@ -103,24 +110,31 @@ render_diagrams() {
     done
 
     if [[ -n "${chrome_exec}" ]]; then
+        log_info "Chromium found: ${chrome_exec}"
         cat > "${puppeteer_cfg}" <<EOF
 {
   "executablePath": "${chrome_exec}",
-  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
 }
 EOF
     else
+        log_warn "No Chrome/Chromium found — trying system default (may fail)"
+        log_warn "Fix: apt-get install -y chromium-browser   OR   snap install chromium"
         cat > "${puppeteer_cfg}" <<'EOF'
 {
-  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
 }
 EOF
     fi
+
+    log_info "Puppeteer config: $(cat "${puppeteer_cfg}")"
 
     find "${DIAGRAMS_DIR}" -name "*.mmd" | while read -r diagram; do
         local name
         name=$(basename "${diagram}" .mmd)
         local out="${OUTPUT_DIR}/diagrams/${name}.svg"
+        local err_tmp
+        err_tmp=$(mktemp)
 
         log_info "Rendering: ${name}.mmd → ${name}.svg"
         if mmdc \
@@ -131,13 +145,19 @@ EOF
             --width 1200 \
             --height 800 \
             --puppeteerConfigFile "${puppeteer_cfg}" \
-            2>>"${LOG_FILE}"; then
+            2>"${err_tmp}"; then
             count=$((count + 1))
             log_success "${name}.svg"
         else
             failed=$((failed + 1))
-            log_warn "Failed to render ${name}.mmd"
+            log_warn "Failed to render ${name}.mmd — error:"
+            # Show error inline AND append to log
+            while IFS= read -r errline; do
+                echo "          ${errline}" >&2
+                echo "          ${errline}" >> "${LOG_FILE}"
+            done < "${err_tmp}"
         fi
+        rm -f "${err_tmp}"
     done
 
     log_step "Rendering PlantUML Diagrams"
