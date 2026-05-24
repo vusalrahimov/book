@@ -84,7 +84,6 @@ header-includes:
   - \usepackage{xcolor}
   - \usepackage{mdframed}
   - \usepackage{tcolorbox}
-  - \usepackage{fontawesome5}
   - \usepackage{listings}
   - \usepackage{tikz}
   - \usepackage{pgfplots}

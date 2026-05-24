@@ -29,7 +29,6 @@
 \usepackage{mdframed}
 \usepackage{tcolorbox}
 \tcbuselibrary{breakable,skins,listings}
-\usepackage{fontawesome5}
 \usepackage{listings}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
@@ -165,7 +164,7 @@
     leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
     arc=2pt,
     fonttitle=\bfseries\small,
-    title={\faLightbulb\quad TIP},
+    title={$\bigstar$ TIP},
     coltitle=TipBorder,
     attach boxed title to top left={xshift=6pt, yshift=-3pt},
     boxed title style={colback=TipBackground, colframe=TipBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
@@ -179,7 +178,7 @@
     leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
     arc=2pt,
     fonttitle=\bfseries\small,
-    title={\faExclamationTriangle\quad WARNING},
+    title={$\triangle$ WARNING},
     coltitle=WarnBorder,
     attach boxed title to top left={xshift=6pt, yshift=-3pt},
     boxed title style={colback=WarnBackground, colframe=WarnBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
@@ -193,7 +192,7 @@
     leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
     arc=2pt,
     fonttitle=\bfseries\small,
-    title={\faInfoCircle\quad NOTE},
+    title={$\circ$ NOTE},
     coltitle=NoteBorder,
     attach boxed title to top left={xshift=6pt, yshift=-3pt},
     boxed title style={colback=NoteBackground, colframe=NoteBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
@@ -207,7 +206,7 @@
     leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
     arc=2pt,
     fonttitle=\bfseries\small,
-    title={\faSkull\quad DANGER},
+    title={$\times$ DANGER},
     coltitle=DangerBorder,
     attach boxed title to top left={xshift=6pt, yshift=-3pt},
     boxed title style={colback=DangerBackground, colframe=DangerBorder, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
@@ -221,7 +220,7 @@
     leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
     arc=2pt,
     fonttitle=\bfseries\small,
-    title={\faQuestion\quad INTERVIEW QUESTION},
+    title={? INTERVIEW QUESTION},
     coltitle=EngineeringBlue,
     attach boxed title to top left={xshift=6pt, yshift=-3pt},
     boxed title style={colback=LightGray, colframe=EngineeringBlue, leftrule=0pt, rightrule=0pt, toprule=0pt, bottomrule=0pt},
